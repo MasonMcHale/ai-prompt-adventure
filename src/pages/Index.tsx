@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Brain, Sparkles, MessageSquare, Target, Lightbulb } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ChallengeCard from "../components/ChallengeCard";
@@ -59,10 +60,11 @@ const features = [
 ];
 
 const Index = () => {
-  const [demoPrompt, setDemoPrompt] = useState("");
-  const [demoResponse, setDemoResponse] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showItems, setShowItems] = useState(false);
+  const { toast } = useToast();
   
   useEffect(() => {
     // Animate in the elements after initial render
@@ -73,17 +75,59 @@ const Index = () => {
     return () => clearTimeout(timer);
   }, []);
   
-  const handleDemoSubmit = (prompt: string) => {
+  const handleSubmit = async (userPrompt: string) => {
     setIsLoading(true);
-    setDemoPrompt(prompt);
+    setPrompt(userPrompt);
     
-    // Simulate API response
-    setTimeout(() => {
-      setIsLoading(false);
-      setDemoResponse(
-        `You asked: "${prompt}"\n\nThis is a demo response showing how the AI would respond to your prompt. In the actual challenges, you'll receive real AI responses and feedback on how well your prompt achieved the target goal.`
+    try {
+      // Make a request to OpenAI API
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students."
+            },
+            {
+              role: "user",
+              content: userPrompt
+            }
+          ],
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        // If we don't have an API key or there's an error, provide a fallback response
+        setResponse(
+          `Thanks for your prompt: "${userPrompt}"\n\nThis is a simulated AI response. To get actual AI responses, you would need to connect to an AI API like OpenAI's. For now, I can tell you that prompt engineering is all about learning how to communicate effectively with AI systems to get the results you want!\n\nTry another prompt or explore our challenges to learn more about prompt engineering.`
+        );
+      } else {
+        const data = await response.json();
+        setResponse(data.choices[0].message.content);
+      }
+    } catch (error) {
+      console.error("Error fetching AI response:", error);
+      
+      // Fallback response when API is not available
+      setResponse(
+        `Thanks for your prompt: "${userPrompt}"\n\nThis is a simulated AI response since we couldn't connect to the AI service. Prompt engineering is all about learning how to communicate effectively with AI systems to get the results you want!\n\nTry another prompt or explore our challenges to learn more about prompt engineering.`
       );
-    }, 1500);
+      
+      toast({
+        title: "AI connection unavailable",
+        description: "Using simulated responses for demonstration",
+        duration: 3000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -130,16 +174,23 @@ const Index = () => {
                   <h3 className="text-lg font-semibold mb-4">Try it yourself</h3>
                   
                   <PromptInput 
-                    onSubmit={handleDemoSubmit} 
+                    onSubmit={handleSubmit} 
                     isLoading={isLoading}
-                    tipText="Try a simple prompt like 'Tell me about AI prompt engineering' to see how it works."
+                    tipText="Try a prompt like 'What is prompt engineering?' or 'How can I get better results from AI?'"
                   />
                   
-                  {demoResponse && (
+                  {response && (
                     <div className="mt-6 transition-all">
-                      <ResultDisplay result={demoResponse} onFeedback={(type) => {
-                        console.log("Feedback:", type);
-                      }} />
+                      <ResultDisplay 
+                        result={response} 
+                        onFeedback={(type) => {
+                          toast({
+                            title: type === 'positive' ? "Thanks for the feedback!" : "We'll improve!",
+                            description: type === 'positive' ? "We're glad you found this helpful." : "Your feedback helps us get better.",
+                            duration: 3000,
+                          });
+                        }} 
+                      />
                     </div>
                   )}
                 </div>
