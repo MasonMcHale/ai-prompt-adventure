@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Trophy, RefreshCw } from "lucide-react";
@@ -90,50 +89,19 @@ const ChallengePage = () => {
     setAttempts(prev => prev + 1);
     
     try {
-      // In a real application, this would make an API call to an AI service
-      // For now, we'll simulate the response with a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const huggingfaceApiKey = process.env.HUGGINGFACE_API_KEY;
       
-      // Simulate AI response based on how close the prompt is to the example
-      // In a real application, this would be actual AI-generated content
-      let simulatedResponse = "";
-      
-      // Simple string similarity check (very basic simulation)
-      const similarity = calculateSimilarity(userPrompt.toLowerCase(), challenge.examplePrompt.toLowerCase());
-      
-      if (similarity > 0.7) {
-        // If prompt is similar to the example, return something close to the target
-        simulatedResponse = challenge.targetResponse;
-        if (currentStep < challenge.totalSteps) {
-          setCurrentStep(prev => prev + 1);
-        }
-        
-        toast({
-          title: "Great prompt!",
-          description: "You're getting close to the goal!",
-          duration: 3000,
-        });
-      } else if (similarity > 0.4) {
-        // Somewhat similar prompt
-        simulatedResponse = "Your prompt is on the right track, but could use more specificity to achieve the goal. " + 
-          challenge.targetResponse.split(".").slice(0, 3).join(".") + "...";
-        
-        toast({
-          description: "You're on the right track! Try being more specific.",
-          duration: 3000,
-        });
+      if (huggingfaceApiKey) {
+        // Use Hugging Face API
+        await callHuggingFaceAPI(userPrompt);
+      } else if (openaiApiKey) {
+        // Use OpenAI API
+        await callOpenAIAPI(userPrompt);
       } else {
-        // Not very similar
-        simulatedResponse = "Your prompt didn't quite achieve the goal. Try again using the hints provided. Remember that specificity and clarity are key to good prompt engineering.";
-        
-        toast({
-          variant: "destructive",
-          description: "Your prompt needs improvement. Check the hints for guidance.",
-          duration: 3000,
-        });
+        // Fallback to simulated response
+        await simulateResponse(userPrompt);
       }
-      
-      setAiResponse(simulatedResponse);
     } catch (error) {
       console.error("Error getting AI response:", error);
       setAiResponse("Sorry, there was an error processing your prompt. Please try again.");
@@ -146,6 +114,144 @@ const ChallengePage = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const callOpenAIAPI = async (userPrompt: string) => {
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students."
+            },
+            {
+              role: "user",
+              content: userPrompt
+            }
+          ],
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const aiResponseText = data.choices[0].message.content;
+      setAiResponse(aiResponseText);
+      
+      // Check if the response is close to the target
+      evaluateResponse(aiResponseText);
+    } catch (error) {
+      console.error("OpenAI API error:", error);
+      throw error;
+    }
+  };
+  
+  const callHuggingFaceAPI = async (userPrompt: string) => {
+    try {
+      // Call Hugging Face Inference API
+      const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          inputs: `<s>[INST] You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.\n\n${userPrompt} [/INST]`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Hugging Face API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const aiResponseText = data[0].generated_text.split("[/INST]")[1].trim();
+      setAiResponse(aiResponseText);
+      
+      // Check if the response is close to the target
+      evaluateResponse(aiResponseText);
+    } catch (error) {
+      console.error("Hugging Face API error:", error);
+      throw error;
+    }
+  };
+  
+  const simulateResponse = async (userPrompt: string) => {
+    // Simulate API response with a delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Simple string similarity check (very basic simulation)
+    const similarity = calculateSimilarity(userPrompt.toLowerCase(), challenge.examplePrompt.toLowerCase());
+    
+    if (similarity > 0.7) {
+      // If prompt is similar to the example, return something close to the target
+      setAiResponse(challenge.targetResponse);
+      if (currentStep < challenge.totalSteps) {
+        setCurrentStep(prev => prev + 1);
+      }
+      
+      toast({
+        title: "Great prompt!",
+        description: "You're getting close to the goal!",
+        duration: 3000,
+      });
+    } else if (similarity > 0.4) {
+      // Somewhat similar prompt
+      setAiResponse("Your prompt is on the right track, but could use more specificity to achieve the goal. " + 
+        challenge.targetResponse.split(".").slice(0, 3).join(".") + "...");
+      
+      toast({
+        description: "You're on the right track! Try being more specific.",
+        duration: 3000,
+      });
+    } else {
+      // Not very similar
+      setAiResponse("Your prompt didn't quite achieve the goal. Try again using the hints provided. Remember that specificity and clarity are key to good prompt engineering.");
+      
+      toast({
+        variant: "destructive",
+        description: "Your prompt needs improvement. Check the hints for guidance.",
+        duration: 3000,
+      });
+    }
+  };
+  
+  const evaluateResponse = (aiResponseText: string) => {
+    // Evaluate how close the response is to the target response
+    const similarity = calculateSimilarity(aiResponseText.toLowerCase(), challenge.targetResponse.toLowerCase());
+    
+    if (similarity > 0.7) {
+      if (currentStep < challenge.totalSteps) {
+        setCurrentStep(prev => prev + 1);
+      }
+      
+      toast({
+        title: "Great prompt!",
+        description: "You're getting close to the goal!",
+        duration: 3000,
+      });
+    } else if (similarity > 0.4) {
+      toast({
+        description: "You're on the right track! Try being more specific.",
+        duration: 3000,
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        description: "Your prompt needs improvement. Check the hints for guidance.",
+        duration: 3000,
+      });
     }
   };
   

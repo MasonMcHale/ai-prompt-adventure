@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Brain, Sparkles, MessageSquare, Target, Lightbulb } from "lucide-react";
@@ -67,7 +66,6 @@ const Index = () => {
   const { toast } = useToast();
   
   useEffect(() => {
-    // Animate in the elements after initial render
     const timer = setTimeout(() => {
       setShowItems(true);
     }, 100);
@@ -80,7 +78,27 @@ const Index = () => {
     setPrompt(userPrompt);
     
     try {
-      // Make a request to OpenAI API
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const huggingfaceApiKey = process.env.HUGGINGFACE_API_KEY;
+      
+      if (huggingfaceApiKey) {
+        await callHuggingFaceAPI(userPrompt);
+      } else if (openaiApiKey) {
+        await callOpenAIAPI(userPrompt);
+      } else {
+        simulateResponse(userPrompt);
+      }
+    } catch (error) {
+      console.error("Error fetching AI response:", error);
+      
+      simulateResponse(userPrompt);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const callOpenAIAPI = async (userPrompt: string) => {
+    try {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -104,30 +122,53 @@ const Index = () => {
       });
 
       if (!response.ok) {
-        // If we don't have an API key or there's an error, provide a fallback response
-        setResponse(
-          `Thanks for your prompt: "${userPrompt}"\n\nThis is a simulated AI response. To get actual AI responses, you would need to connect to an AI API like OpenAI's. For now, I can tell you that prompt engineering is all about learning how to communicate effectively with AI systems to get the results you want!\n\nTry another prompt or explore our challenges to learn more about prompt engineering.`
-        );
-      } else {
-        const data = await response.json();
-        setResponse(data.choices[0].message.content);
+        throw new Error(`OpenAI API error: ${response.status}`);
       }
+      
+      const data = await response.json();
+      setResponse(data.choices[0].message.content);
     } catch (error) {
-      console.error("Error fetching AI response:", error);
-      
-      // Fallback response when API is not available
-      setResponse(
-        `Thanks for your prompt: "${userPrompt}"\n\nThis is a simulated AI response since we couldn't connect to the AI service. Prompt engineering is all about learning how to communicate effectively with AI systems to get the results you want!\n\nTry another prompt or explore our challenges to learn more about prompt engineering.`
-      );
-      
-      toast({
-        title: "AI connection unavailable",
-        description: "Using simulated responses for demonstration",
-        duration: 3000,
-      });
-    } finally {
-      setIsLoading(false);
+      console.error("OpenAI API error:", error);
+      throw error;
     }
+  };
+  
+  const callHuggingFaceAPI = async (userPrompt: string) => {
+    try {
+      const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          inputs: `<s>[INST] You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.\n\n${userPrompt} [/INST]`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Hugging Face API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const aiResponse = data[0].generated_text.split("[/INST]")[1].trim();
+      setResponse(aiResponse);
+    } catch (error) {
+      console.error("Hugging Face API error:", error);
+      throw error;
+    }
+  };
+  
+  const simulateResponse = (userPrompt: string) => {
+    setResponse(
+      `Thanks for your prompt: "${userPrompt}"\n\nThis is a simulated AI response. To get actual AI responses, you would need to connect to an AI API like OpenAI's or Hugging Face's. For now, I can tell you that prompt engineering is all about learning how to communicate effectively with AI systems to get the results you want!\n\nTry another prompt or explore our challenges to learn more about prompt engineering.`
+    );
+    
+    toast({
+      title: "AI connection unavailable",
+      description: "Using simulated responses for demonstration",
+      duration: 3000,
+    });
   };
   
   return (
@@ -135,7 +176,6 @@ const Index = () => {
       <Header />
       
       <main className="flex-grow">
-        {/* Hero Section */}
         <section className="pt-32 pb-20 px-6 md:min-h-[85vh] flex items-center relative overflow-hidden">
           <div className="absolute inset-0 z-0">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-gradient-to-r from-primary/10 to-blue-400/10 blur-3xl" />
@@ -199,7 +239,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Features Section */}
         <section className="py-20 px-6 bg-secondary/50">
           <div className="container max-w-7xl mx-auto">
             <div className="text-center mb-16">
@@ -227,7 +266,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* Featured Challenges */}
         <section className="py-20 px-6">
           <div className="container max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
@@ -263,7 +301,6 @@ const Index = () => {
           </div>
         </section>
         
-        {/* CTA Section */}
         <section className="py-20 px-6 bg-gradient-to-r from-primary/10 to-blue-400/10">
           <div className="container max-w-7xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 max-w-2xl mx-auto text-balance">
