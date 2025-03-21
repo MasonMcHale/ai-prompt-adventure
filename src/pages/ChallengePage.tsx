@@ -62,6 +62,8 @@ const ChallengePage = () => {
   const [showTarget, setShowTarget] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [attempts, setAttempts] = useState(0);
+  const [responsePass, setResponsePass] = useState(false);
+  const [promptPass, setPromptPass] = useState(false);
 
   useEffect(() => {
     // Reset state when challenge changes
@@ -70,6 +72,8 @@ const ChallengePage = () => {
     setShowTarget(false);
     setCurrentStep(1);
     setAttempts(0);
+    setResponsePass(false);
+    setPromptPass(false);
   }, [id]);
 
   if (!challenge) {
@@ -109,18 +113,63 @@ const ChallengePage = () => {
         // First get the response to the user's prompt
         const responseResult = await callHuggingFaceAPIForResponse(userPrompt);
 
-        // Then evaluate that response
-        const evaluationResult = await callHuggingFaceAPIForEvaluation(
-          responseResult
-        );
+        // Then evaluate that response and the prompt in parallel
+        const [responseEvaluation, promptEvaluation] = await Promise.all([
+          callHuggingFaceAPIForResponseEvaluation(responseResult),
+          callHuggingFaceAPIForPromptEvaluation(userPrompt),
+        ]);
+
+        // Check for PASS/FAIL in evaluations
+        const isResponsePass =
+          !responseEvaluation.includes("(FAIL)") &&
+          responseEvaluation.includes("(PASS)");
+        const isPromptPass =
+          !promptEvaluation.includes("(FAIL)") &&
+          promptEvaluation.includes("(PASS)");
+
+        setResponsePass(isResponsePass);
+        setPromptPass(isPromptPass);
+
+        console.log("Response Pass:", isResponsePass);
+        console.log("Prompt Pass:", isPromptPass);
 
         // Combine the results
         setAiResponse(
-          `=== AI RESPONSE ===\n${responseResult}\n\n=== EVALUATION ===\n${evaluationResult}`
+          `=== AI RESPONSE ===\n${responseResult}\n\n=== RESPONSE EVALUATION ===\n${responseEvaluation}\n\n=== PROMPT EVALUATION ===\n${promptEvaluation}`
         );
 
-        // Evaluate only based on the actual response part
-        evaluateResponse(responseResult);
+        // Show toast based on pass/fail status instead of calculating similarity
+        if (isResponsePass && isPromptPass) {
+          if (currentStep < challenge.totalSteps) {
+            setCurrentStep((prev) => prev + 1);
+          }
+
+          toast({
+            title: "Challenge complete!",
+            description:
+              "Both your prompt and the response passed the evaluation.",
+            duration: 3000,
+          });
+        } else if (isPromptPass) {
+          toast({
+            description:
+              "Your prompt was well-crafted, but the response didn't meet the goal.",
+            duration: 3000,
+          });
+        } else if (isResponsePass) {
+          toast({
+            description:
+              "You got a good response, but try improving your prompt structure.",
+            duration: 3000,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            description:
+              "Both your prompt and the response need improvement. Check the hints.",
+            duration: 3000,
+          });
+        }
       } else {
         // Fallback to simulated response
         await simulateResponse(userPrompt);
@@ -172,8 +221,10 @@ const ChallengePage = () => {
     }
   };
 
-  // Renamed function for the evaluation part
-  const callHuggingFaceAPIForEvaluation = async (aiResponse: string) => {
+  // Function to evaluate the response
+  const callHuggingFaceAPIForResponseEvaluation = async (
+    aiResponse: string
+  ) => {
     console.log(challenge.goalDescription);
     try {
       const apiKey = import.meta.env.VITE_HUGGINGFACE_API_KEY;
@@ -192,7 +243,7 @@ CHALLENGE GOAL: ${challenge.goalDescription}
 EVALUATION INSTRUCTIONS:
 1. Evaluate if the following AI response meets the challenge goal above
 2. Compare this response to what would be expected for the challenge
-3. After your evaluation, you MUST conclude with either (PASS) or (FAIL)
+3. After your evaluation, you MUST conclude with either (PASS) or (FAIL) and make sure to use parentheses
 4. Provide a brief explanation for your decision
 
 TARGET RESPONSE: ${challenge.targetResponse.substring(0, 200)}...
@@ -216,6 +267,49 @@ ${aiResponse}
     }
   };
 
+  // New function to evaluate the prompt itself
+  const callHuggingFaceAPIForPromptEvaluation = async (userPrompt: string) => {
+    try {
+      const apiKey = import.meta.env.VITE_HUGGINGFACE_API_KEY;
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            inputs: `<s>[INST] 
+CHALLENGE GOAL: ${challenge.goalDescription}
+
+EXAMPLE PROMPT: ${challenge.examplePrompt}
+
+EVALUATION INSTRUCTIONS:
+1. Evaluate if the following user prompt is well-crafted to achieve the challenge goal
+2. Consider clarity, specificity, and instructions in the prompt
+3. After your evaluation, you MUST conclude with either (PASS) or (FAIL) and make sure to use parentheses
+4. Provide a brief explanation for your decision
+
+USER PROMPT TO EVALUATE: 
+${userPrompt}
+[/INST]`,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Hugging Face API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data[0].generated_text.split("[/INST]")[1].trim();
+    } catch (error) {
+      console.error("Hugging Face API prompt evaluation error:", error);
+      throw error;
+    }
+  };
+
   const simulateResponse = async (userPrompt: string) => {
     // Simulate API response with a delay
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -226,32 +320,54 @@ ${aiResponse}
       challenge.examplePrompt.toLowerCase()
     );
 
-    if (similarity > 0.7) {
-      // If prompt is similar to the example, return something close to the target
+    // Set pass/fail status based on similarity
+    const simResponsePass = similarity > 0.7;
+    const simPromptPass = similarity > 0.6;
+
+    setResponsePass(simResponsePass);
+    setPromptPass(simPromptPass);
+
+    if (simResponsePass && simPromptPass) {
+      // Both pass - great result
       setAiResponse(challenge.targetResponse);
+
       if (currentStep < challenge.totalSteps) {
         setCurrentStep((prev) => prev + 1);
       }
 
       toast({
-        title: "Great prompt!",
-        description: "You're getting close to the goal!",
+        title: "Challenge complete!",
+        description: "Both your prompt and the response passed the evaluation.",
         duration: 3000,
       });
-    } else if (similarity > 0.4) {
-      // Somewhat similar prompt
+    } else if (simPromptPass) {
+      // Only prompt passes
       setAiResponse(
-        "Your prompt is on the right track, but could use more specificity to achieve the goal. " +
+        "Your prompt is well-structured, but the response doesn't quite achieve the goal. " +
+          challenge.targetResponse.split(".").slice(0, 2).join(".") +
+          "..."
+      );
+
+      toast({
+        description:
+          "Your prompt was well-crafted, but the response didn't meet the goal.",
+        duration: 3000,
+      });
+    } else if (simResponsePass) {
+      // Only response passes
+      setAiResponse(
+        "You got a good response, but your prompt could be more specific. " +
           challenge.targetResponse.split(".").slice(0, 3).join(".") +
           "..."
       );
 
       toast({
-        description: "You're on the right track! Try being more specific.",
+        description:
+          "You got a good response, but try improving your prompt structure.",
         duration: 3000,
       });
     } else {
-      // Not very similar
+      // Neither passes
       setAiResponse(
         "Your prompt didn't quite achieve the goal. Try again using the hints provided. Remember that specificity and clarity are key to good prompt engineering."
       );
@@ -259,39 +375,7 @@ ${aiResponse}
       toast({
         variant: "destructive",
         description:
-          "Your prompt needs improvement. Check the hints for guidance.",
-        duration: 3000,
-      });
-    }
-  };
-
-  const evaluateResponse = (aiResponseText: string) => {
-    // Evaluate how close the response is to the target response
-    const similarity = calculateSimilarity(
-      aiResponseText.toLowerCase(),
-      challenge.targetResponse.toLowerCase()
-    );
-
-    if (similarity > 0.7) {
-      if (currentStep < challenge.totalSteps) {
-        setCurrentStep((prev) => prev + 1);
-      }
-
-      toast({
-        title: "Great prompt!",
-        description: "You're getting close to the goal!",
-        duration: 3000,
-      });
-    } else if (similarity > 0.4) {
-      toast({
-        description: "You're on the right track! Try being more specific.",
-        duration: 3000,
-      });
-    } else {
-      toast({
-        variant: "destructive",
-        description:
-          "Your prompt needs improvement. Check the hints for guidance.",
+          "Both your prompt and the response need improvement. Check the hints.",
         duration: 3000,
       });
     }
@@ -384,12 +468,7 @@ ${aiResponse}
                       <h3 className="text-lg font-medium mb-2">AI Response</h3>
                       <ResultDisplay
                         result={aiResponse}
-                        isSuccess={
-                          calculateSimilarity(
-                            aiResponse,
-                            challenge.targetResponse
-                          ) > 0.7
-                        }
+                        isSuccess={responsePass}
                       />
                     </div>
                   )}
