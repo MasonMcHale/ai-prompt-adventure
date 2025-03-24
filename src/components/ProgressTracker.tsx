@@ -19,7 +19,7 @@ const ProgressTracker = ({
   return (
     <div className={`flex items-center justify-between w-full ${className}`}>
       {steps.map((step) => {
-        const isCompleted = step <= currentStep;
+        const isCompleted = step < currentStep;
         const isActive = step === currentStep;
         
         return (
@@ -32,7 +32,7 @@ const ProgressTracker = ({
               )}
               
               {step < totalSteps && (
-                <div className={`h-[2px] w-16 md:w-24 ${isCompleted ? "bg-primary" : "bg-muted-foreground/20"}`} />
+                <div className={`h-[2px] w-16 md:w-24 ${step < currentStep ? "bg-primary" : "bg-muted-foreground/20"}`} />
               )}
             </div>
             
