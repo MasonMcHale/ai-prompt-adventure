@@ -28,34 +28,16 @@ const ProgressTracker = ({
               {isCompleted ? (
                 <CheckCircle2 className="w-8 h-8 text-primary" />
               ) : (
-                <Circle 
-                  className={`w-8 h-8 ${
-                    isActive 
-                      ? "text-primary stroke-[1.5px]" 
-                      : "text-muted-foreground/40 stroke-[1px]"
-                  }`} 
-                />
+                <Circle className={`w-8 h-8 ${isActive ? "text-primary stroke-[1.5px]" : "text-muted-foreground/40 stroke-[1px]"}`} />
               )}
               
               {step < totalSteps && (
-                <div 
-                  className={`h-[2px] w-16 md:w-24 transition-colors duration-300 ${
-                    step < currentStep 
-                      ? "bg-primary" 
-                      : "bg-muted-foreground/20"
-                  }`} 
-                />
+                <div className={`h-[2px] w-16 md:w-24 ${step < currentStep ? "bg-primary" : "bg-muted-foreground/20"}`} />
               )}
             </div>
             
             {showLabels && (
-              <span 
-                className={`mt-2 text-xs ${
-                  isActive || isCompleted 
-                    ? "text-foreground font-medium" 
-                    : "text-muted-foreground"
-                }`}
-              >
+              <span className={`mt-2 text-xs ${isActive || isCompleted ? "text-foreground font-medium" : "text-muted-foreground"}`}>
                 Step {step}
               </span>
             )}
