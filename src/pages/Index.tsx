@@ -14,6 +14,11 @@ import Footer from "../components/Footer";
 import ChallengeCard from "../components/ChallengeCard";
 import PromptInput from "../components/PromptInput";
 import ResultDisplay from "../components/ResultDisplay";
+import {
+  GoogleGenerativeAI,
+  HarmCategory,
+  HarmBlockThreshold,
+} from "@google/generative-ai";
 
 const featuredChallenges = [
   {
@@ -75,6 +80,23 @@ const features = [
   },
 ];
 
+// Initialize Gemini API
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
+
+const model = genAI.getGenerativeModel({
+  model: "gemini-2.0-flash",
+});
+
+const generationConfig = {
+  temperature: 1,
+  topP: 0.95,
+  topK: 40,
+  maxOutputTokens: 8192,
+  responseModalities: [],
+  responseMimeType: "text/plain",
+};
+
 const Index = () => {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
@@ -95,88 +117,26 @@ const Index = () => {
     setPrompt(userPrompt);
 
     try {
-      const huggingfaceApiKey = import.meta.env.VITE_HUGGINGFACE_API_KEY;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-      if (huggingfaceApiKey) {
-        await callHuggingFaceAPI(userPrompt);
+      if (apiKey) {
+        const chatSession = model.startChat({
+          generationConfig,
+          history: [],
+        });
+
+        const result = await chatSession.sendMessage(
+          `You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.\n\n${userPrompt}`
+        );
+        setResponse(result.response.text());
       } else {
         simulateResponse(userPrompt);
       }
     } catch (error) {
       console.error("Error fetching AI response:", error);
-
       simulateResponse(userPrompt);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const callOpenAIAPI = async (userPrompt: string) => {
-    try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.",
-              },
-              {
-                role: "user",
-                content: userPrompt,
-              },
-            ],
-            max_tokens: 1000,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setResponse(data.choices[0].message.content);
-    } catch (error) {
-      console.error("OpenAI API error:", error);
-      throw error;
-    }
-  };
-
-  const callHuggingFaceAPI = async (userPrompt: string) => {
-    try {
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_HUGGINGFACE_API_KEY}`,
-          },
-          body: JSON.stringify({
-            inputs: `<s>[INST] You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.\n\n${userPrompt} [/INST]`,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Hugging Face API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const aiResponse = data[0].generated_text.split("[/INST]")[1].trim();
-      setResponse(aiResponse);
-    } catch (error) {
-      console.error("Hugging Face API error:", error);
-      throw error;
     }
   };
 
