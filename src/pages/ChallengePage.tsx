@@ -13,22 +13,43 @@ import {
   HarmBlockThreshold,
 } from "@google/generative-ai";
 
-// Initialize Gemini API
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(apiKey);
+// Initialize Gemini API with error handling
+let genAI;
+let model;
+let generationConfig;
 
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-});
+try {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  console.log("API Key present:", !!apiKey); // Debug log
+  console.log("API Key length:", apiKey?.length); // Debug log
 
-const generationConfig = {
-  temperature: 1,
-  topP: 0.95,
-  topK: 40,
-  maxOutputTokens: 8192,
-  responseModalities: [],
-  responseMimeType: "text/plain",
-};
+  if (apiKey) {
+    genAI = new GoogleGenerativeAI(apiKey);
+    model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+    });
+
+    generationConfig = {
+      temperature: 1,
+      topP: 0.95,
+      topK: 40,
+      maxOutputTokens: 8192,
+      responseModalities: [],
+      responseMimeType: "text/plain",
+    };
+
+    console.log("Gemini API initialized successfully");
+  } else {
+    console.warn("Gemini API key not found in environment variables");
+  }
+} catch (error) {
+  console.error("Error initializing Gemini API:", error);
+  console.error("Error details:", {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+  });
+}
 
 // Mock challenge data - in a real app, this would come from an API
 const challengeData = {
@@ -373,74 +394,47 @@ const ChallengePage = () => {
 
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      console.log("API Key present:", !!apiKey); // Debug log
 
-      if (apiKey) {
-        const chatSession = model.startChat({
-          generationConfig,
-          history: [],
-        });
-
-        // Get the AI response
-        const result = await chatSession.sendMessage(prompt);
-        setResult(result.response.text());
-
-        // Create a new chat session for evaluation
-        const evalChatSession = model.startChat({
-          generationConfig,
-          history: [],
-        });
-
-        // Ask the AI to evaluate the prompt
-        const evaluationPrompt = `
-          Challenge Goal: ${
-            currentStepData?.goal || "Create an effective prompt"
-          }
-          Example Prompt: ${currentStepData?.examplePrompt || "Not provided"}
-          User's Prompt: "${prompt}"
-          
-          Evaluate if the user's prompt is effective for the challenge goal. 
-          Consider if it's clear, specific, and likely to achieve the goal.
-          Respond with ONLY "PASS" or "FAIL" followed by a brief explanation.
-        `;
-
-        const evaluationResult = await evalChatSession.sendMessage(
-          evaluationPrompt
-        );
-        const evaluationText = evaluationResult.response.text();
-
-        // Check if the evaluation starts with "PASS"
-        console.log(evaluationText);
-        const isSuccessful = evaluationText
-          .trim()
-          .toUpperCase()
-          .startsWith("PASS");
-        setIsSuccess(isSuccessful);
-
-        if (isSuccessful) {
-          toast({
-            title: "Success!",
-            description:
-              "Your prompt was effective! You can now move to the next step.",
-            variant: "default",
+      if (apiKey && model) {
+        try {
+          const chatSession = model.startChat({
+            generationConfig,
+            history: [],
           });
-        } else {
-          toast({
-            title: "Not quite there yet",
-            description:
-              "Your prompt could be improved. Try again with the feedback provided.",
-            variant: "destructive",
+
+          const result = await chatSession.sendMessage(prompt);
+          setResult(result.response.text());
+
+          // Create a new chat session for evaluation
+          const evalChatSession = model.startChat({
+            generationConfig,
+            history: [],
           });
-        }
-      } else {
-        // Fallback to simulation if API key is not available
-        setTimeout(() => {
-          setResult(
-            "This is a simulated response from the API. In a real application, this would be the response from an actual API call to a language model with your prompt."
+
+          // Ask the AI to evaluate the prompt
+          const evaluationPrompt = `
+            Challenge Goal: ${
+              currentStepData?.goal || "Create an effective prompt"
+            }
+            Example Prompt: ${currentStepData?.examplePrompt || "Not provided"}
+            User's Prompt: "${prompt}"
+            
+            Evaluate if the user's prompt is effective for the challenge goal. 
+            Consider if it's clear, specific, and likely to achieve the goal.
+            Respond with ONLY "PASS" or "FAIL" followed by a brief explanation.
+          `;
+
+          const evaluationResult = await evalChatSession.sendMessage(
+            evaluationPrompt
           );
-          setIsLoading(false);
+          const evaluationText = evaluationResult.response.text();
 
-          // Simulate evaluation
-          const isSuccessful = Math.random() > 0.5;
+          // Check if the evaluation starts with "PASS"
+          const isSuccessful = evaluationText
+            .trim()
+            .toUpperCase()
+            .startsWith("PASS");
           setIsSuccess(isSuccessful);
 
           if (isSuccessful) {
@@ -458,13 +452,20 @@ const ChallengePage = () => {
               variant: "destructive",
             });
           }
-        }, 1500);
+        } catch (apiError) {
+          console.error("Gemini API error:", apiError);
+          // Fall back to simulation
+          simulateResponse(prompt);
+        }
+      } else {
+        console.warn(
+          "API key or model not available, falling back to simulation"
+        );
+        simulateResponse(prompt);
       }
     } catch (error) {
-      console.error("Error fetching AI response:", error);
-      setResult(
-        "An error occurred while processing your prompt. Please try again."
-      );
+      console.error("Error in handleSubmit:", error);
+      simulateResponse(prompt);
     } finally {
       setIsLoading(false);
     }
@@ -490,6 +491,36 @@ const ChallengePage = () => {
   const handleViewTarget = () => {
     setResult(currentStepData?.targetResponse || "");
     setIsSuccess(true);
+  };
+
+  // Helper function for simulation
+  const simulateResponse = (prompt: string) => {
+    setTimeout(() => {
+      setResult(
+        "This is a simulated response from the API. In a real application, this would be the response from an actual API call to a language model with your prompt."
+      );
+      setIsLoading(false);
+
+      // Simulate evaluation
+      const isSuccessful = Math.random() > 0.5;
+      setIsSuccess(isSuccessful);
+
+      if (isSuccessful) {
+        toast({
+          title: "Success!",
+          description:
+            "Your prompt was effective! You can now move to the next step.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Not quite there yet",
+          description:
+            "Your prompt could be improved. Try again with the feedback provided.",
+          variant: "destructive",
+        });
+      }
+    }, 1500);
   };
 
   if (!challenge) {

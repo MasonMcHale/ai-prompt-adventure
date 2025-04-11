@@ -20,7 +20,49 @@ import {
   HarmBlockThreshold,
 } from "@google/generative-ai";
 
-const featuredChallenges = [
+// Define types for proper type checking
+type Difficulty = "beginner" | "intermediate" | "advanced";
+
+interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  completionRate: number;
+  imageUrl: string;
+}
+
+// Initialize Gemini API with error handling
+let genAI;
+let model;
+let generationConfig;
+
+try {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  console.log("API Key present:", !!apiKey); // Debug log
+  console.log("API Key length:", apiKey?.length); // Debug log
+
+  if (apiKey) {
+    genAI = new GoogleGenerativeAI(apiKey);
+    model = genAI.getGenerativeModel({
+      model: "gemini-pro",
+    });
+
+    generationConfig = {
+      temperature: 1,
+      topP: 0.95,
+      topK: 40,
+      maxOutputTokens: 8192,
+    };
+  } else {
+    console.warn("No Gemini API key found. Simulation mode will be used.");
+  }
+} catch (error) {
+  console.error("Error initializing Gemini API:", error);
+  console.warn("Using simulation mode due to API initialization error.");
+}
+
+const featuredChallenges: Challenge[] = [
   {
     id: "image-generation",
     title: "Create the Perfect Image",
@@ -80,23 +122,6 @@ const features = [
   },
 ];
 
-// Initialize Gemini API
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(apiKey);
-
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-});
-
-const generationConfig = {
-  temperature: 1,
-  topP: 0.95,
-  topK: 40,
-  maxOutputTokens: 8192,
-  responseModalities: [],
-  responseMimeType: "text/plain",
-};
-
 const Index = () => {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
@@ -118,22 +143,29 @@ const Index = () => {
 
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      console.log("API Key present:", !!apiKey); // Debug log
 
-      if (apiKey) {
-        const chatSession = model.startChat({
-          generationConfig,
-          history: [],
-        });
+      if (apiKey && model) {
+        try {
+          const chatSession = model.startChat({
+            generationConfig,
+            history: [],
+          });
 
-        const result = await chatSession.sendMessage(
-          `You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.\n\n${userPrompt}`
-        );
-        setResponse(result.response.text());
+          const result = await chatSession.sendMessage(
+            `You are a helpful AI assistant that teaches students about prompt engineering. Keep your responses concise and educational, with a friendly tone suitable for high school students.\n\n${userPrompt}`
+          );
+          setResponse(result.response.text());
+        } catch (error) {
+          console.error("Error with Gemini API call:", error);
+          simulateResponse(userPrompt);
+        }
       } else {
+        console.log("Using simulation mode - no API key or model available");
         simulateResponse(userPrompt);
       }
     } catch (error) {
-      console.error("Error fetching AI response:", error);
+      console.error("Error in handleSubmit:", error);
       simulateResponse(userPrompt);
     } finally {
       setIsLoading(false);
@@ -304,16 +336,19 @@ const Index = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredChallenges.map((challenge, index) => (
-                <ChallengeCard
-                  key={challenge.id}
-                  id={challenge.id}
-                  title={challenge.title}
-                  description={challenge.description}
-                  difficulty={challenge.difficulty as any}
-                  completionRate={challenge.completionRate}
-                  imageUrl={challenge.imageUrl}
-                />
+              {featuredChallenges.map((challenge) => (
+                <div key={challenge.id} className="w-full">
+                  <Link to={`/challenge/${challenge.id}`}>
+                    <ChallengeCard
+                      id={challenge.id}
+                      title={challenge.title}
+                      description={challenge.description}
+                      difficulty={challenge.difficulty}
+                      completionRate={challenge.completionRate}
+                      imageUrl={challenge.imageUrl}
+                    />
+                  </Link>
+                </div>
               ))}
             </div>
           </div>
