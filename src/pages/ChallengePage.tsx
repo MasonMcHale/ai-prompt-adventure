@@ -429,6 +429,7 @@ const ChallengePage = () => {
             evaluationPrompt
           );
           const evaluationText = evaluationResult.response.text();
+          console.log("Evaluation result:", evaluationText);
 
           // Check if the evaluation starts with "PASS"
           const isSuccessful = evaluationText
@@ -436,7 +437,7 @@ const ChallengePage = () => {
             .toUpperCase()
             .startsWith("PASS");
           setIsSuccess(isSuccessful);
-
+          console.log("isSuccessful:", isSuccessful);
           if (isSuccessful) {
             toast({
               title: "Success!",
