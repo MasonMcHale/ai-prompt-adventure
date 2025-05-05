@@ -374,6 +374,7 @@ const ChallengePage = () => {
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState<boolean | undefined>(undefined);
+  const [evaluationText, setEvaluationText] = useState<string | null>(null);
   const { toast } = useToast();
 
   const challenge = id ? challengeData[id] : null;
@@ -428,11 +429,13 @@ const ChallengePage = () => {
           const evaluationResult = await evalChatSession.sendMessage(
             evaluationPrompt
           );
-          const evaluationText = evaluationResult.response.text();
-          console.log("Evaluation result:", evaluationText);
+          // Await in case .text() is async
+          const evaluationTextRaw = await evaluationResult.response.text?.();
+          setEvaluationText(evaluationTextRaw || null);
+          console.log("Evaluation result:", evaluationTextRaw);
 
           // Check if the evaluation starts with "PASS"
-          const isSuccessful = evaluationText
+          const isSuccessful = (evaluationTextRaw || "")
             .trim()
             .toUpperCase()
             .startsWith("PASS");
@@ -455,6 +458,7 @@ const ChallengePage = () => {
           }
         } catch (apiError) {
           console.error("Gemini API error:", apiError);
+          setEvaluationText(null);
           // Fall back to simulation
           simulateResponse(prompt);
         }
@@ -462,9 +466,11 @@ const ChallengePage = () => {
         console.warn(
           "API key or model not available, falling back to simulation"
         );
+        setEvaluationText(null);
         simulateResponse(prompt);
       }
     } catch (error) {
+      setEvaluationText(null);
       console.error("Error in handleSubmit:", error);
       simulateResponse(prompt);
     } finally {
@@ -624,6 +630,12 @@ const ChallengePage = () => {
                         <li key={index}>{hint}</li>
                       ))}
                     </ul>
+                    {evaluationText && (
+                      <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground">
+                        <span className="font-semibold">AI Evaluation:</span>{" "}
+                        {evaluationText}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 pt-4 border-t">
