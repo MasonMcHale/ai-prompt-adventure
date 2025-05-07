@@ -43,8 +43,8 @@ const challengesData = [
   },
   {
     id: "5",
-    title: "Debug Code with AI",
-    description: "Learn how to write effective prompts that help AI find and fix bugs in your code snippets.",
+    title: "Crisis Management Assistant",
+    description: "Master advanced prompting for simulating an AI crisis-management advisor that helps executives analyze and respond to breaches.",
     difficulty: "advanced" as const,
     completionRate: 0.41,
     isCompleted: false,
@@ -52,8 +52,8 @@ const challengesData = [
   },
   {
     id: "6",
-    title: "Master Chain-of-Thought Prompting",
-    description: "Advanced techniques for guiding AI through complex reasoning tasks by breaking down the thinking process.",
+    title: "Data Validation Challenge",
+    description: "Learn how to prompt AI to identify and classify errors in messy user data while extracting valid information.",
     difficulty: "advanced" as const,
     completionRate: 0.37,
     isCompleted: false,
