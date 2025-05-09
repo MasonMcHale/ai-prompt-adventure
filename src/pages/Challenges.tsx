@@ -3,10 +3,8 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChallengeCard from "@/components/ChallengeCard";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronRight } from "lucide-react";
 
-const textChallengesData = [
+const challengesData = [
   {
     id: "1",
     title: "Generate a Creative Story",
@@ -45,8 +43,8 @@ const textChallengesData = [
   },
   {
     id: "5",
-    title: "Crisis Management Assistant",
-    description: "Learn how to create a comprehensive prompt that guides AI to assist in managing a corporate crisis scenario.",
+    title: "Debug Code with AI",
+    description: "Learn how to write effective prompts that help AI find and fix bugs in your code snippets.",
     difficulty: "advanced" as const,
     completionRate: 0.41,
     isCompleted: false,
@@ -54,8 +52,8 @@ const textChallengesData = [
   },
   {
     id: "6",
-    title: "Data Validation Challenge",
-    description: "Master complex data validation tasks by creating prompts that help AI identify and categorize problematic entries.",
+    title: "Master Chain-of-Thought Prompting",
+    description: "Advanced techniques for guiding AI through complex reasoning tasks by breaking down the thinking process.",
     difficulty: "advanced" as const,
     completionRate: 0.37,
     isCompleted: false,
@@ -63,54 +61,12 @@ const textChallengesData = [
   },
 ];
 
-const imageChallengesData = [
-  {
-    id: "101",
-    title: "Basic Image Composition",
-    description: "Learn to craft prompts that generate well-composed images with specific subjects and backgrounds.",
-    difficulty: "beginner" as const,
-    completionRate: 0.89,
-    isCompleted: false,
-    imageUrl: "/placeholder.svg"
-  },
-  {
-    id: "102",
-    title: "Style and Aesthetics",
-    description: "Master prompting techniques to control artistic style, lighting, and mood in generated images.",
-    difficulty: "beginner" as const,
-    completionRate: 0.76,
-    isCompleted: false,
-    imageUrl: "/placeholder.svg"
-  },
-  {
-    id: "103",
-    title: "Character Design",
-    description: "Create detailed character designs by learning how to describe physical attributes and personality traits.",
-    difficulty: "intermediate" as const,
-    completionRate: 0.65,
-    isCompleted: false,
-    imageUrl: "/placeholder.svg"
-  },
-  {
-    id: "104",
-    title: "Scene Complexity",
-    description: "Generate complex scenes with multiple elements and detailed interactions through careful prompting.",
-    difficulty: "advanced" as const,
-    completionRate: 0.48,
-    isCompleted: false,
-    imageUrl: "/placeholder.svg"
-  },
-];
-
 const Challenges = () => {
   const [filter, setFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<string>("text");
-  
-  const currentChallengesData = activeTab === "text" ? textChallengesData : imageChallengesData;
   
   const filteredChallenges = filter === "all" 
-    ? currentChallengesData 
-    : currentChallengesData.filter(challenge => challenge.difficulty === filter);
+    ? challengesData 
+    : challengesData.filter(challenge => challenge.difficulty === filter);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -125,19 +81,6 @@ const Challenges = () => {
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Select a challenge to test your prompt engineering skills. Each challenge has specific goals for you to achieve through crafting effective prompts.
             </p>
-          </div>
-          
-          <div className="mb-6 flex justify-center">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-md">
-              <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="text" className="flex items-center gap-2">
-                  Text Prompting
-                </TabsTrigger>
-                <TabsTrigger value="image" className="flex items-center gap-2">
-                  Image Prompting <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">New</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
           </div>
           
           <div className="mb-8 flex justify-center">
@@ -169,39 +112,20 @@ const Challenges = () => {
             </div>
           </div>
           
-          <TabsContent value="text" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredChallenges.map((challenge) => (
-                <ChallengeCard
-                  key={challenge.id}
-                  id={challenge.id}
-                  title={challenge.title}
-                  description={challenge.description}
-                  difficulty={challenge.difficulty}
-                  completionRate={challenge.completionRate}
-                  isCompleted={challenge.isCompleted}
-                  imageUrl={challenge.imageUrl}
-                />
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="image" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredChallenges.map((challenge) => (
-                <ChallengeCard
-                  key={challenge.id}
-                  id={challenge.id}
-                  title={challenge.title}
-                  description={challenge.description}
-                  difficulty={challenge.difficulty}
-                  completionRate={challenge.completionRate}
-                  isCompleted={challenge.isCompleted}
-                  imageUrl={challenge.imageUrl}
-                />
-              ))}
-            </div>
-          </TabsContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredChallenges.map((challenge) => (
+              <ChallengeCard
+                key={challenge.id}
+                id={challenge.id}
+                title={challenge.title}
+                description={challenge.description}
+                difficulty={challenge.difficulty}
+                completionRate={challenge.completionRate}
+                isCompleted={challenge.isCompleted}
+                imageUrl={challenge.imageUrl}
+              />
+            ))}
+          </div>
         </div>
       </main>
       
