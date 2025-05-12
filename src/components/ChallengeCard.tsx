@@ -11,6 +11,7 @@ interface ChallengeCardProps {
   completionRate: number;
   isCompleted?: boolean;
   imageUrl: string;
+  linkPrefix?: string;
 }
 
 const ChallengeCard = ({
@@ -20,7 +21,8 @@ const ChallengeCard = ({
   difficulty,
   completionRate,
   isCompleted = false,
-  imageUrl
+  imageUrl,
+  linkPrefix = "/challenge/"
 }: ChallengeCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   
@@ -33,7 +35,7 @@ const ChallengeCard = ({
   
   return (
     <Link 
-      to={`/challenge/${id}`}
+      to={`${linkPrefix}${id}`}
       className="w-full group" 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

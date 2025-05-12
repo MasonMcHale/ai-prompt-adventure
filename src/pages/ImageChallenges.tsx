@@ -123,6 +123,7 @@ const ImageChallenges = () => {
                 completionRate={challenge.completionRate}
                 isCompleted={challenge.isCompleted}
                 imageUrl={challenge.imageUrl}
+                linkPrefix="/image-challenge/"
               />
             ))}
           </div>

@@ -124,6 +124,7 @@ const Challenges = () => {
                 completionRate={challenge.completionRate}
                 isCompleted={challenge.isCompleted}
                 imageUrl={challenge.imageUrl}
+                linkPrefix="/challenge/"
               />
             ))}
           </div>

@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Challenges from "./pages/Challenges";
 import ImageChallenges from "./pages/ImageChallenges";
 import ChallengePage from "./pages/ChallengePage";
+import ImageChallengePage from "./pages/ImageChallengePage";
 import Leaderboard from "./pages/Leaderboard";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/challenges" element={<Challenges />} />
           <Route path="/image-challenges" element={<ImageChallenges />} />
           <Route path="/challenge/:id" element={<ChallengePage />} />
+          <Route path="/image-challenge/:id" element={<ImageChallengePage />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<NotFound />} />
