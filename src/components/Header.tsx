@@ -19,10 +19,10 @@ const Header = () => {
             Home
           </Link>
           <Link to="/challenges" className="text-sm font-medium opacity-90 hover:opacity-100 transition-opacity">
-            Text Prompt Challenges
+            Text Challenges
           </Link>
           <Link to="/image-challenges" className="text-sm font-medium opacity-90 hover:opacity-100 transition-opacity">
-            Image Prompt Challenges
+            Image Challenges
           </Link>
           <Link to="/leaderboard" className="text-sm font-medium opacity-90 hover:opacity-100 transition-opacity">
             Leaderboard
