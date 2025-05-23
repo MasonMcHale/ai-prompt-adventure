@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PromptInput from "@/components/PromptInput";
@@ -31,22 +33,22 @@ interface ImageChallenge {
 const imageChallengesData: ImageChallenge[] = [
   {
     id: "img1",
-    title: "Photorealistic Scene Creation",
+    title: "Lens Usage and Effects",
     description:
-      "Learn how to craft prompts that generate detailed photorealistic scenes with specific lighting and atmosphere.",
+      "Learn how to ask AI image generators to use specific camera lenses to achieve the visual effect you imagine.",
     difficulty: "beginner",
     completionRate: 0.82,
     isCompleted: false,
-    imageUrl: "https://images.unsplash.com/photo-1470813740244-df37b8c1edcb",
+    imageUrl: "/img1.png",
     instructions:
-      "Create a prompt that would generate a photorealistic landscape scene with golden hour lighting and atmospheric fog.",
+      "Create a prompt that generates an image similar to the example image.",
     targetDescription:
-      "A breathtaking landscape at golden hour with mountains in the background, a lake reflecting the warm light, and atmospheric fog adding depth to the scene.",
+      "Black and white headshot of a man with curly hair, captured with a 400mm lens for intense background compression and facial detail. The man's skin shows clear texture with visible pores. Dramatic lighting setup with a single light source from the left side, casting strong shadows and leaving the right side of his face in near-total darkness. High contrast, sharp focus, cinematic portrait style. This lesson is on lens usage so make sure to put emphasis on the lens used. This is a easy course so be nice but lens is important.",
     tips: [
-      "Specify the time of day and lighting conditions precisely",
-      "Include details about atmospheric elements like fog or mist",
-      "Mention specific landscape features you want to include",
-      "Use descriptive adjectives for mood and style",
+      "Describe the lighting you see",
+      "Describe the texture you see",
+      "Talk about the lens used",
+      "Talk about the overall feel of the image",
     ],
   },
   {
@@ -158,6 +160,9 @@ const ImageChallengePage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showSolution, setShowSolution] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState<boolean | undefined>(undefined);
+  const [evaluationText, setEvaluationText] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Find the current challenge based on the id parameter
   const challenge = imageChallengesData.find((c) => c.id === id);
@@ -177,10 +182,13 @@ const ImageChallengePage = () => {
     setUserPrompt(prompt);
     setIsLoading(true);
     setError(null);
+    setIsSuccess(undefined);
+    setEvaluationText(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
+      // Generate the image using GoogleGenAI
+      const imageAI = new GoogleGenAI({ apiKey });
+      const response = await imageAI.models.generateContent({
         model: "gemini-2.0-flash-preview-image-generation",
         contents: prompt,
         config: {
@@ -201,6 +209,67 @@ const ImageChallengePage = () => {
           setGeneratedImage(dataUrl);
           break;
         }
+      }
+
+      // Evaluate the prompt using GoogleGenerativeAI text model
+      try {
+        const textAI = new GoogleGenerativeAI(apiKey);
+        const textModel = textAI.getGenerativeModel({
+          model: "gemini-2.0-flash",
+        });
+
+        const evaluationPrompt = `
+          Challenge: ${challenge?.title || "Image generation challenge"}
+          Challenge Instructions: ${
+            challenge?.instructions || "Generate an image"
+          }
+          Target Description: ${challenge?.targetDescription || "Not provided"}
+          
+          User's Prompt: "${prompt}"
+          
+          Evaluate if the user's prompt is effective for this image generation challenge. 
+          Consider if it:
+          - Addresses the specific requirements in the instructions
+          - Is likely to generate an image similar to the target description
+          - Is clear, specific, and detailed enough for good image generation
+          - Includes relevant technical details (lighting, style, composition, etc.)
+          
+          Respond with ONLY "PASS" or "FAIL" followed by a brief explanation of why the prompt succeeds or what could be improved.
+        `;
+
+        const evaluationResult = await textModel.generateContent(
+          evaluationPrompt
+        );
+        const evaluationTextRaw = evaluationResult.response.text();
+        setEvaluationText(evaluationTextRaw);
+
+        // Check if the evaluation starts with "PASS"
+        const isSuccessful = evaluationTextRaw
+          .trim()
+          .toUpperCase()
+          .startsWith("PASS");
+        setIsSuccess(isSuccessful);
+
+        if (isSuccessful) {
+          toast({
+            title: "Great prompt!",
+            description:
+              "Your prompt effectively addresses the challenge requirements.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Prompt could be improved",
+            description: "Check the feedback below to enhance your prompt.",
+            variant: "destructive",
+          });
+        }
+      } catch (evalError) {
+        console.error("Error evaluating prompt:", evalError);
+        // Still show the image even if evaluation fails
+        setEvaluationText(
+          "Evaluation temporarily unavailable, but your image was generated successfully!"
+        );
       }
     } catch (err) {
       console.error("Error generating image:", err);
@@ -269,6 +338,18 @@ const ImageChallengePage = () => {
             </p>
           </div>
 
+          {/* Example Image */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Example Image</h2>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <img
+                src={challenge.imageUrl}
+                alt="Example for this challenge"
+                className="w-full h-auto object-contain"
+              />
+            </div>
+          </div>
+
           {/* Challenge Instructions */}
           <Card className="mb-8">
             <CardHeader>
@@ -300,7 +381,7 @@ const ImageChallengePage = () => {
               onSubmit={handleSubmitPrompt}
               placeholder="Write your image generation prompt here..."
               isLoading={isLoading}
-              tipText="Be specific about details like style, lighting, composition, and subject matter."
+              tipText="Be specific about details like style, lighting, composition, and subject matter. Your prompt will be evaluated against the challenge requirements."
             />
           </div>
 
@@ -319,6 +400,33 @@ const ImageChallengePage = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     {userPrompt}
                   </p>
+
+                  {/* Evaluation Feedback */}
+                  {evaluationText && (
+                    <div
+                      className={`mb-4 p-3 rounded-lg border ${
+                        isSuccess
+                          ? "bg-green-50 border-green-200 text-green-800"
+                          : "bg-red-50 border-red-200 text-red-800"
+                      }`}
+                    >
+                      <div className="flex items-start">
+                        <div
+                          className={`w-2 h-2 rounded-full mt-2 mr-2 flex-shrink-0 ${
+                            isSuccess ? "bg-green-600" : "bg-red-600"
+                          }`}
+                        ></div>
+                        <div>
+                          <p className="font-medium text-sm mb-1">
+                            {isSuccess
+                              ? "✓ Great Prompt!"
+                              : "⚠ Needs Improvement"}
+                          </p>
+                          <p className="text-xs">{evaluationText}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-end">
                     <button
